@@ -1,0 +1,243 @@
+local Obsidian = {functions = {}}
+
+local Vector2New, Cam, Mouse, client, find, Draw, Inset, players, RunService, UIS=
+    Vector2.new,
+    workspace.CurrentCamera,
+    game.Players.LocalPlayer:GetMouse(),
+    game.Players.LocalPlayer,
+    table.find,
+    Drawing.new,
+    game:GetService("GuiService"):GetGuiInset().Y,
+    game.Players, 
+    game.RunService,
+    game:GetService("UserInputService")
+
+
+local mf, rnew = math.floor, Random.new
+
+local Targetting
+local lockedCamTo
+
+local userinputservice = game:GetService('UserInputService')
+local RS = game:GetService('RunService')
+
+local Circle = Drawing.new("Circle")
+
+local c = Drawing.new('Circle')
+c.Radius = getgenv().Obsidian.SilentAim.FOVData.Radius *3.71
+c.Thickness = 4.5 
+c.Color = Color3.new(1,1,1)
+c.Visible = getgenv().Obsidian.SilentAim.FOVData.Visibility
+
+local c22 = Drawing.new('Circle')
+c22.Radius = getgenv().Obsidian.SilentAim.FOVData.Radius *3.69
+c22.Thickness = 4.5 
+c22.Color = Color3.new(1,1,1)
+c22.Visible = getgenv().Obsidian.SilentAim.FOVData.Visibility
+
+local oc1 = Drawing.new('Circle')
+oc1.Radius = getgenv().Obsidian.SilentAim.FOVData.Radius *3.7
+oc1.Thickness = 2.5 
+oc1.Color = Color3.new(0,0,0)
+oc1.Visible = getgenv().Obsidian.SilentAim.FOVData.Visibility
+
+local oc2 = Drawing.new('Circle')
+oc2.Radius = getgenv().Obsidian.SilentAim.FOVData.Radius *3.7
+oc2.Thickness = 2.5 
+oc2.Color = Color3.new(0,0,0)
+oc2.Visible = getgenv().Obsidian.SilentAim.FOVData.Visibility
+ 
+local UpdateFOV = function()
+    c.Position = Vector2New(Mouse.X, Mouse.Y + (Inset))
+end
+
+local UpdateFOV1 = function()
+    oc1.Position = Vector2New(Mouse.X, Mouse.Y + (Inset))
+end
+
+local UpdateFOV2 = function()
+    oc2.Position = Vector2New(Mouse.X, Mouse.Y + (Inset))
+end
+
+local UpdateFOV3 = function()
+    c22.Position = Vector2New(Mouse.X, Mouse.Y + (Inset))
+end
+
+RS.Heartbeat:Connect(UpdateFOV)
+RS.Heartbeat:Connect(UpdateFOV1)
+RS.Heartbeat:Connect(UpdateFOV2)
+RS.Heartbeat:Connect(UpdateFOV3)
+
+if getgenv().Obsidian.SilentAim.FOVData.Rainbow ~= false then
+    while true do
+        wait(0)
+    oc1.Color = Color3.fromHSV((tick() % 5 / 5), 1, 1)
+    oc2.Color = Color3.fromHSV((tick() % 5 / 5), 1, 1)
+    end
+    end
+
+Obsidian.functions.onKeyPress = function(inputObject)
+    if inputObject.KeyCode == Enum.KeyCode[getgenv().Obsidian.SilentAim.Key:upper()] then
+        getgenv().Obsidian.SilentAim.Enabled = not getgenv().Obsidian.SilentAim.Enabled
+    end
+
+    if inputObject.KeyCode == Enum.KeyCode[getgenv().Obsidian.Tracing.Key:upper()] then
+        getgenv().Obsidian.Tracing.Enabled = not getgenv().Obsidian.Tracing.Enabled
+        if getgenv().Obsidian.Tracing.Enabled then
+            lockedCamTo = Obsidian.functions.returnClosestPlayer(getgenv().Obsidian.SilentAim.ChanceData.Chance)
+        end
+    end
+end
+
+UIS.InputBegan:Connect(Obsidian.functions.onKeyPress)
+
+
+Obsidian.functions.wallCheck = function(direction, ignoreList)
+    if not getgenv().Obsidian.SilentAim.AimingData.CheckWalls then
+        return true
+    end
+
+    local ray = Ray.new(Cam.CFrame.p, direction - Cam.CFrame.p)
+    local part, _, _ = game:GetService("Workspace"):FindPartOnRayWithIgnoreList(ray, ignoreList)
+
+    return not part
+end
+
+Obsidian.functions.pointDistance = function(part)
+    local OnScreen = Cam.WorldToScreenPoint(Cam, part.Position)
+    if OnScreen then
+        return (Vector2New(OnScreen.X, OnScreen.Y) - Vector2New(Mouse.X, Mouse.Y)).Magnitude
+    end
+end
+
+Obsidian.functions.returnClosestPart = function(Character)
+    local data = {
+        dist = math.huge,
+        part = nil,
+        filteredparts = {},
+        classes = {"Part", "BasePart", "MeshPart"}
+    }
+
+    if not (Character and Character:IsA("Model")) then
+        return data.part
+    end
+    local children = Character:GetChildren()
+    for _, child in pairs(children) do
+        if table.find(data.classes, child.ClassName) then
+            table.insert(data.filteredparts, child)
+            for _, part in pairs(data.filteredparts) do
+                local dist = Obsidian.functions.pointDistance(part)
+                if Circle.Radius > dist and dist < data.dist then
+                    data.part = part
+                    data.dist = dist
+                end
+            end
+        end
+    end
+    return data.part
+end
+
+Obsidian.functions.returnClosestPlayer = function (amount)
+    local data = {
+        dist = 1/0,
+        player = nil
+    }
+
+    amount = amount or nil
+
+    for _, player in pairs(players:GetPlayers()) do
+        if (player.Character and player ~= client) then
+            local dist = Obsidian.functions.pointDistance(player.Character.HumanoidRootPart)
+            if Circle.Radius > dist and dist < data.dist and 
+            Obsidian.functions.wallCheck(player.Character.Head.Position,{client, player.Character}) then
+                data.dist = dist
+                data.player = player
+            end
+        end
+    end
+    local calc = mf(rnew().NextNumber(rnew(), 0, 1) * 100) / 100
+    local use = getgenv().Obsidian.SilentAim.ChanceData.UseChance
+    if use and calc <= mf(amount) / 100 then
+        return calc and data.player
+    else
+        return data.player
+    end
+end
+
+Obsidian.functions.setAimingType = function (player, type)
+    local previousSilentAimPart = getgenv().Obsidian.SilentAim.AimPart
+    local previousTracingPart = getgenv().Obsidian.Tracing.AimPart
+    if type == "Closest Part" then
+        getgenv().Obsidian.SilentAim.AimPart = tostring(Obsidian.functions.returnClosestPart(player.Character))
+        getgenv().Obsidian.Tracing.AimPart = tostring(Obsidian.functions.returnClosestPart(player.Character))
+    elseif type == "Closest Point" then
+        Obsidian.functions.returnClosestPoint()
+    elseif type == "Default" then
+        getgenv().Obsidian.SilentAim.AimPart = previousSilentAimPart
+        getgenv().Obsidian.Tracing.AimPart = previousTracingPart
+    else
+        getgenv().Obsidian.SilentAim.AimPart = previousSilentAimPart
+        getgenv().Obsidian.Tracing.AimPart = previousTracingPart
+    end
+end
+
+Obsidian.functions.aimingCheck = function (player)
+    if getgenv().Obsidian.SilentAim.AimingData.CheckKnocked == true and player and player.Character then
+        if player.Character.BodyEffects["K.O"].Value then
+            return true
+        end
+    end
+    if getgenv().Obsidian.SilentAim.AimingData.CheckGrabbed == true and player and player.Character then
+        if player.Character:FindFirstChild("GRABBING_CONSTRAINT") then
+            return true
+        end
+    end
+    return false
+end
+
+local lastRender = 0
+local interpolation = 0.01
+
+RunService.RenderStepped:Connect(function(delta)
+    local valueTypes = 1.375
+    lastRender = lastRender + delta
+    while lastRender > interpolation do
+        lastRender = lastRender - interpolation
+    end
+    if getgenv().Obsidian.Tracing.Enabled and lockedCamTo ~= nil and getgenv().Obsidian.Tracing.TracingOptions.Strength == "Hard" then
+        local Vel =  lockedCamTo.Character[getgenv().Obsidian.Tracing.AimPart].Velocity / (getgenv().Obsidian.Tracing.Prediction * valueTypes)
+        local Main = CFrame.new(Cam.CFrame.p, lockedCamTo.Character[getgenv().Obsidian.Tracing.AimPart].Position + (Vel))
+        Cam.CFrame = Cam.CFrame:Lerp(Main ,getgenv().Obsidian.Tracing.TracingOptions.Smoothness , Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+        Obsidian.functions.setAimingType(lockedCamTo, getgenv().Obsidian.Tracing.TracingOptions.AimingType)
+    elseif getgenv().Obsidian.Tracing.Enabled and lockedCamTo ~= nil and getgenv().Obsidian.Tracing.TracingOptions.Strength == "Soft" then
+        local Vel =  lockedCamTo.Character[getgenv().Obsidian.Tracing.AimPart].Velocity / (getgenv().Obsidian.Tracing.Prediction / valueTypes)
+        local Main = CFrame.new(Cam.CFrame.p, lockedCamTo.Character[getgenv().Obsidian.Tracing.AimPart].Position + (Vel))
+        Cam.CFrame = Cam.CFrame:Lerp(Main ,getgenv().Obsidian.Tracing.TracingOptions.Smoothness , Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+        Obsidian.functions.setAimingType(lockedCamTo, getgenv().Obsidian.Tracing.TracingOptions.AimingType)
+    else
+
+    end
+end)
+
+task.spawn(function ()
+    while task.wait() do
+        if Targetting then
+            Obsidian.functions.setAimingType(Targetting, getgenv().Obsidian.SilentAim.AimingType)
+        end
+    end
+end)
+
+
+local __index
+__index = hookmetamethod(game,"__index", function(Obj, Property)
+    if Obj:IsA("Mouse") and Property == "Hit" then
+        Targetting = Obsidian.functions.returnClosestPlayer(getgenv().Obsidian.SilentAim.ChanceData.Chance)
+        if Targetting ~= nil and getgenv().Obsidian.SilentAim.Enabled and not Obsidian.functions.aimingCheck(Targetting) then
+            local currentvelocity = Targetting.Character[getgenv().Obsidian.SilentAim.AimPart].Velocity
+            local currentposition = Targetting.Character[getgenv().Obsidian.SilentAim.AimPart].CFrame
+
+            return currentposition + (currentvelocity * getgenv().Obsidian.SilentAim.Prediction)
+        end
+    end
+    return __index(Obj, Property)
+end)
